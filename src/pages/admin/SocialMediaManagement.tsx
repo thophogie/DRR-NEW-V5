@@ -75,7 +75,7 @@ const SocialMediaManagement: React.FC = () => {
             id: '1',
             platform: 'facebook',
             content: 'BDRRM Planning Training Workshop completed successfully! 🎯 Thank you to all barangay officials who participated.',
-            image: 'https://res.cloudinary.com/dedcmctqk/image/upload/v1750575265/487673077_1062718335885316_7552782387266701410_n_gexfn2.jpg',
+            image: 'https://sbrtouofskfpgfzlcurg.supabase.co/storage/v1/object/public/mdrrmo_bucket/487673077_1062718335885316_7552782387266701410_n_gexfn2.jpeg',
             status: 'published',
             engagement: { likes: 45, shares: 12, comments: 8 }
           },

@@ -38,7 +38,7 @@
       "short_name": "Report",
       "description": "Report an emergency or incident",
       "url": "/?action=report",
-      "icons": [{ "src": "/icon-192x192.png", "sizes": "192x192" }]
+      "icons": [{ "src": "https://res.cloudinary.com/dedcmctqk/image/upload/v1756482922/apple-icon_shtib7.png", "sizes": "192x192" }]
     }
   ]
 }

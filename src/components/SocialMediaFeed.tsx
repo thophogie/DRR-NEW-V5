@@ -100,7 +100,7 @@ const SocialMediaFeed: React.FC<SocialMediaFeedProps> = ({
       id: '1',
       platform: 'facebook',
       content: '🎯 BDRRM Planning Training Workshop completed successfully! Thank you to all barangay officials who participated in strengthening our disaster preparedness. Together, we build a more resilient Pio Duran! 💪 #MDRRMO #DisasterPreparedness #PioDuran',
-      image: 'https://res.cloudinary.com/dedcmctqk/image/upload/v1750575265/487673077_1062718335885316_7552782387266701410_n_gexfn2.jpg',
+      image: 'https://sbrtouofskfpgfzlcurg.supabase.co/storage/v1/object/public/mdrrmo_bucket/487673077_1062718335885316_7552782387266701410_n_gexfn2.jpeg',
       timestamp: '2024-06-29T10:30:00Z',
       engagement: { likes: 45, comments: 8, shares: 12 },
       author: { name: 'MDRRMO Pio Duran', avatar: 'https://res.cloudinary.com/dedcmctqk/image/upload/v1750079276/logome_h9snnx.webp' }

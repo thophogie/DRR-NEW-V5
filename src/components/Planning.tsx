@@ -279,6 +279,7 @@ const Planning: React.FC = () => {
                 <div className="aspect-video rounded-2xl overflow-hidden relative">
                   <iframe 
                     src="https://www.google.com/maps/d/embed?mid=12eKHRMUMYnO5lZOiaJQOA9cJD-xjXU8&hl=en&ehbc=2E312F" 
+                    allow="unload"
                     width="100%" 
                     height="100%"
                     style={{ border: 0, borderRadius: '1rem' }}

@@ -241,7 +241,7 @@ const Hero = ({ onEmergencyClick, onIncidentClick }) => {
      {/*  <SmoothScroll isActive={isScrolling} onStop={() => setIsScrolling(false)} />  */}
       
       {/* Custom Styles */}
-      <style jsx>{`
+      <style jsx="true">{`
         @keyframes rainDrop {
           0% {
             transform: translateY(-100vh);

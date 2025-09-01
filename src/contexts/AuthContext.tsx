@@ -194,19 +194,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = async () => {
     try {
       setLoading(true);
+      setError(null);
+      
+      // Clear user state immediately to prevent UI issues
+      setUser(null);
+      setIsAuthenticated(false);
+      
       const { error } = await supabase.auth.signOut();
       
       if (error) {
         console.error('Logout error:', error);
-        setError('Failed to sign out');
+        // Don't show error to user for logout issues, just log it
+        console.warn('Logout warning:', error.message);
       } else {
-        setUser(null);
-        setIsAuthenticated(false);
-        setError(null);
+        console.log('Successfully signed out');
       }
+      
+      // Always clear state regardless of Supabase response
+      setUser(null);
+      setIsAuthenticated(false);
+      setError(null);
+      
     } catch (error) {
       console.error('Logout error:', error);
-      setError('An error occurred during sign out');
+      // Always clear state even if there's an error
+      setUser(null);
+      setIsAuthenticated(false);
+      setError(null);
     } finally {
       setLoading(false);
     }

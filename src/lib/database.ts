@@ -48,20 +48,32 @@ export class DatabaseManager {
 
   private async quickHealthCheck(): Promise<boolean> {
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), this.connectionTimeout);
+      let controller: AbortController | undefined;
+      let timeoutId: NodeJS.Timeout;
+      
+      try {
+        controller = new AbortController();
+        timeoutId = setTimeout(() => {
+          if (controller && !controller.signal.aborted) {
+            controller.abort();
+          }
+        }, this.connectionTimeout);
 
-      const { error } = await supabase
-        .from('news')
-        .select('count')
-        .limit(1)
-        .abortSignal(controller.signal);
+        const { error } = await supabase
+          .from('news')
+          .select('count')
+          .limit(1)
+          .abortSignal(controller.signal);
       
-      clearTimeout(timeoutId);
+        clearTimeout(timeoutId);
       
-      if (error) throw error;
-      this.lastHealthCheck = Date.now();
-      return true;
+        if (error) throw error;
+        this.lastHealthCheck = Date.now();
+        return true;
+      } catch (error) {
+        clearTimeout(timeoutId);
+        throw error;
+      }
     } catch (error) {
       this.isConnected = false;
       throw error;
@@ -93,27 +105,39 @@ export class DatabaseManager {
         return false;
       }
       
-      // Test connection with timeout
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), this.connectionTimeout);
+      // Test connection with proper timeout handling
+      let controller: AbortController | undefined;
+      let timeoutId: NodeJS.Timeout;
       
-      const { data, error } = await supabase
-        .from('news')
-        .select('count')
-        .limit(1)
-        .abortSignal(controller.signal);
+      try {
+        controller = new AbortController();
+        timeoutId = setTimeout(() => {
+          if (controller && !controller.signal.aborted) {
+            controller.abort();
+          }
+        }, this.connectionTimeout);
       
-      clearTimeout(timeoutId);
+        const { data, error } = await supabase
+          .from('news')
+          .select('count')
+          .limit(1)
+          .abortSignal(controller.signal);
       
-      if (error) throw error;
+        clearTimeout(timeoutId);
       
-      this.isConnected = true;
-      this.lastHealthCheck = Date.now();
+        if (error) throw error;
       
-      console.log('✅ Database connection verified');
-      return true;
+        this.isConnected = true;
+        this.lastHealthCheck = Date.now();
+        
+        console.log('✅ Database connection verified');
+        return true;
+      } catch (error) {
+        clearTimeout(timeoutId);
+        throw error;
+      }
     } catch (error) {
-      if (error.name === 'AbortError') {
+      if (error instanceof Error && error.name === 'AbortError') {
         console.error('❌ Database connection timeout');
       } else {
         console.error('❌ Database connection failed:', error);

@@ -62,11 +62,18 @@ function DatabaseProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      // Test basic connection with timeout
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout
+      // Test basic connection with proper timeout handling
+      let timeoutId: NodeJS.Timeout;
+      let controller: AbortController | undefined;
       
       try {
+        controller = new AbortController();
+        timeoutId = setTimeout(() => {
+          if (controller && !controller.signal.aborted) {
+            controller.abort();
+          }
+        }, 8000); // 8 second timeout
+        
         const { data, error } = await supabase
           .from('news')
           .select('count')
@@ -80,7 +87,7 @@ function DatabaseProvider({ children }: { children: ReactNode }) {
         }
       } catch (fetchError) {
         clearTimeout(timeoutId);
-        if (fetchError.name === 'AbortError') {
+        if (fetchError instanceof Error && fetchError.name === 'AbortError') {
           throw new Error('Connection timeout - please check your network and Supabase configuration');
         }
         throw fetchError;

@@ -17,7 +17,7 @@ const ImageGallery: React.FC = () => {
         description: item.description
       }))
     : [
-        { url: 'https://sbrtouofskfpgfzlcurg.supabase.co/storage/v1/object/public/mdrrmo_bucket/487673077_1062718335885316_7552782387266701410_n_gexfn2.jpeg', title: 'BDRRM Training Workshop', description: 'Barangay officials training' },
+        { url: 'https://res.cloudinary.com/dedcmctqk/image/upload/v1749911301/raphael-ai_19_jowg5v.jpg', title: 'BDRRM Training Workshop', description: 'Barangay officials training' },
         { url: 'https://sbrtouofskfpgfzlcurg.supabase.co/storage/v1/object/public/mdrrmo_bucket/489043126_1065374988952984_1331524645056736117_n_fbmvch.jpeg', title: 'Earthquake Drill', description: 'Community preparedness exercise' },
         { url: 'https://sbrtouofskfpgfzlcurg.supabase.co/storage/v1/object/public/mdrrmo_bucket/472984055_1002760098547807_5747993743270536498_n_cgi07u.jpeg', title: 'Water Rescue Training', description: 'WASAR training session' },
         { url: 'https://images.pexels.com/photos/73833/worm-s-eye-view-us-flag-low-angle-shot-flag-73833.jpeg', title: 'Fire Safety Campaign', description: 'Community fire prevention' },

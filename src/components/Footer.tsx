@@ -166,7 +166,6 @@ const Footer: React.FC = () => {
                 width="100%"
                 height="240"
                 allow="unload"
-
                 style={{ border: 0 }}
                 allowFullScreen
                 loading="lazy"

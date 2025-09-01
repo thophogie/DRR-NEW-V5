@@ -395,7 +395,7 @@ const VideoGallery: React.FC = () => {
         </div>
       )}
 
-      <style jsx>{`
+      <style jsx="true">{`
         @keyframes fadeIn {
           from { opacity: 0; }
           to { opacity: 1; }

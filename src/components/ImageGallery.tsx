@@ -17,9 +17,9 @@ const ImageGallery: React.FC = () => {
         description: item.description
       }))
     : [
-        { url: 'https://res.cloudinary.com/dedcmctqk/image/upload/v1750575265/487673077_1062718335885316_7552782387266701410_n_gexfn2.jpg', title: 'BDRRM Training Workshop', description: 'Barangay officials training' },
-        { url: 'https://res.cloudinary.com/dedcmctqk/image/upload/v1750575261/489043126_1065374988952984_1331524645056736117_n_fbmvch.jpg', title: 'Earthquake Drill', description: 'Community preparedness exercise' },
-        { url: 'https://res.cloudinary.com/dedcmctqk/image/upload/v1750575263/472984055_1002760098547807_5747993743270536498_n_cgi07u.jpg', title: 'Water Rescue Training', description: 'WASAR training session' },
+        { url: 'https://sbrtouofskfpgfzlcurg.supabase.co/storage/v1/object/public/mdrrmo_bucket/487673077_1062718335885316_7552782387266701410_n_gexfn2.jpg', title: 'BDRRM Training Workshop', description: 'Barangay officials training' },
+        { url: 'https://sbrtouofskfpgfzlcurg.supabase.co/storage/v1/object/public/mdrrmo_bucket/489043126_1065374988952984_1331524645056736117_n_fbmvch.jpg', title: 'Earthquake Drill', description: 'Community preparedness exercise' },
+        { url: 'https://sbrtouofskfpgfzlcurg.supabase.co/storage/v1/object/public/mdrrmo_bucket/472984055_1002760098547807_5747993743270536498_n_cgi07u.jpg', title: 'Water Rescue Training', description: 'WASAR training session' },
         { url: 'https://images.pexels.com/photos/73833/worm-s-eye-view-us-flag-low-angle-shot-flag-73833.jpeg', title: 'Fire Safety Campaign', description: 'Community fire prevention' },
         { url: 'https://images.pexels.com/photos/6146970/pexels-photo-6146970.jpeg', title: 'Emergency Response', description: 'Community training' },
         { url: 'https://images.pexels.com/photos/8566473/pexels-photo-8566473.jpeg', title: 'Flood Response', description: 'Emergency simulation' }

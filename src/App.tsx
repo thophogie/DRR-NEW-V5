@@ -8,6 +8,7 @@ import { PagesProvider } from './contexts/PagesContext';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 
 import { PublicLayout } from './layouts/PublicLayout';
+
 function App() {
   return (
     <ErrorBoundary>

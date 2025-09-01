@@ -16,6 +16,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
   </ErrorBoundary>
 </Router>
 
+
 // Public Pages
 import PublicLayout from './layouts/PublicLayout';
 import Home from './pages/public/Home';

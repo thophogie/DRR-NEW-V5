@@ -1,4 +1,7 @@
+import React from 'react';
 import ErrorBoundary from './components/ErrorBoundary';
+import LoadingSpinner from './components/LoadingSpinner';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { DataProvider } from './contexts/DataContext';
 import { DatabaseProvider } from './contexts/DatabaseContext';
 import { PagesProvider } from './contexts/PagesContext';

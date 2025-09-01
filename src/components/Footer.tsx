@@ -165,6 +165,8 @@ const Footer: React.FC = () => {
                 src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d627.0440762880165!2d123.455991!3d13.044111!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x33a01dcb8f5dc12d%3A0xf32c415c60d3f10f!2sMunicipal%20Hall%20of%20Pio%20Duran%2C%20Albay!5e0!3m2!1sen!2sph!4v1718610900000"
                 width="100%"
                 height="240"
+                allow="unload"
+
                 style={{ border: 0 }}
                 allowFullScreen
                 loading="lazy"

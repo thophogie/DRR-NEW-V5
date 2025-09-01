@@ -1,4 +1,7 @@
 import ErrorBoundary from './components/ErrorBoundary';
+import { DataProvider } from './contexts/DataContext';
+import { DatabaseProvider } from './contexts/DatabaseContext';
+import { PagesProvider } from './contexts/PagesContext';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 
 function App() {

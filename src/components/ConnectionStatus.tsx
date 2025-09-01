@@ -20,9 +20,36 @@ const ConnectionStatus: React.FC = () => {
   const [diagnostics, setDiagnostics] = useState<any>(null);
   const [isRunningDiagnostics, setIsRunningDiagnostics] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
+  const [lastHeartbeat, setLastHeartbeat] = useState<Date | null>(null);
 
   useEffect(() => {
     runDiagnostics();
+    
+    // Listen for connection events
+    const handleConnected = () => {
+      setLastHeartbeat(new Date());
+      runDiagnostics();
+    };
+    
+    const handleDisconnected = () => {
+      setLastHeartbeat(null);
+    };
+    
+    window.addEventListener('database-connected', handleConnected);
+    window.addEventListener('database-disconnected', handleDisconnected);
+    
+    // Update heartbeat every 30 seconds when connected
+    const heartbeatInterval = setInterval(() => {
+      if (isConnected) {
+        setLastHeartbeat(new Date());
+      }
+    }, 30000);
+    
+    return () => {
+      window.removeEventListener('database-connected', handleConnected);
+      window.removeEventListener('database-disconnected', handleDisconnected);
+      clearInterval(heartbeatInterval);
+    };
   }, []);
 
   const runDiagnostics = async () => {
@@ -113,9 +140,21 @@ const ConnectionStatus: React.FC = () => {
           <span className={`font-medium ${isConnected ? 'text-green-800' : 'text-red-800'}`}>
             {isConnected ? 'Database Connected' : 'Database Disconnected'}
           </span>
+          {lastHeartbeat && (
+            <span className="text-xs text-gray-500">
+              (Last heartbeat: {lastHeartbeat.toLocaleTimeString()})
+            </span>
+          )}
         </div>
         {connectionError && (
           <p className="text-sm text-red-700 mt-2">{connectionError}</p>
+        )}
+        
+        {isConnected && (
+          <div className="mt-2 flex items-center space-x-2">
+            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+            <span className="text-xs text-green-700">Connection stable</span>
+          </div>
         )}
       </div>
 

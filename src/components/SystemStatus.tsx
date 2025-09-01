@@ -7,6 +7,7 @@ const SystemStatus: React.FC = () => {
   const [healthChecks, setHealthChecks] = useState<any[]>([]);
   const [systemMetrics, setSystemMetrics] = useState<any>(null);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
+  const [connectionStability, setConnectionStability] = useState<'stable' | 'unstable' | 'unknown'>('unknown');
   const { isConnected } = useDatabase();
 
   useEffect(() => {
@@ -17,13 +18,29 @@ const SystemStatus: React.FC = () => {
       setHealthChecks(checks);
       setSystemMetrics(metrics);
       setLastUpdate(new Date());
+      
+      // Determine connection stability
+      const recentErrors = metrics?.errors?.recent || [];
+      const connectionErrors = recentErrors.filter(error => 
+        error.message.includes('connection') || 
+        error.message.includes('network') ||
+        error.message.includes('timeout')
+      );
+      
+      if (connectionErrors.length > 2) {
+        setConnectionStability('unstable');
+      } else if (isConnected) {
+        setConnectionStability('stable');
+      } else {
+        setConnectionStability('unknown');
+      }
     };
 
     updateStatus();
-    const interval = setInterval(updateStatus, 30000); // Update every 30 seconds
+    const interval = setInterval(updateStatus, 15000); // Update every 15 seconds
 
     return () => clearInterval(interval);
-  }, []);
+  }, [isConnected]);
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -68,6 +85,13 @@ const SystemStatus: React.FC = () => {
         <div className="flex items-center space-x-2">
           {getStatusIcon(overallStatus)}
           <span className={`text-sm font-medium ${getStatusColor(overallStatus)}`}>
+          <span className={`text-xs px-2 py-1 rounded-full ${
+            connectionStability === 'stable' ? 'bg-green-100 text-green-800' :
+            connectionStability === 'unstable' ? 'bg-yellow-100 text-yellow-800' :
+            'bg-gray-100 text-gray-800'
+          }`}>
+            Connection: {connectionStability}
+          </span>
             {overallStatus.charAt(0).toUpperCase() + overallStatus.slice(1)}
           </span>
         </div>

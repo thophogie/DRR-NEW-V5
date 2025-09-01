@@ -49,8 +49,10 @@ export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '', {
 // Connection state management
 let isConnected = false;
 let connectionRetries = 0;
-const maxRetries = 5;
-const retryDelay = 2000;
+const maxRetries = 3;
+const baseRetryDelay = 1000;
+let reconnectTimeout: NodeJS.Timeout | null = null;
+let heartbeatInterval: NodeJS.Timeout | null = null;
 
 // Enhanced connection testing with retry logic
 const testConnection = async (retryCount = 0): Promise<boolean> => {
@@ -58,6 +60,12 @@ const testConnection = async (retryCount = 0): Promise<boolean> => {
     if (!validateEnvironment()) {
       console.warn('⚠️ Supabase not configured - running in offline mode');
       return false;
+    }
+
+    // Clear any existing reconnect timeout
+    if (reconnectTimeout) {
+      clearTimeout(reconnectTimeout);
+      reconnectTimeout = null;
     }
 
     const { data, error } = await supabase
@@ -76,6 +84,9 @@ const testConnection = async (retryCount = 0): Promise<boolean> => {
     // Dispatch custom event for connection status
     window.dispatchEvent(new CustomEvent('supabase-connected', { detail: { connected: true } }));
     
+    // Start heartbeat monitoring
+    startHeartbeat();
+    
     return true;
   } catch (error) {
     console.error(`❌ Supabase connection failed (attempt ${retryCount + 1}):`, error);
@@ -84,54 +95,118 @@ const testConnection = async (retryCount = 0): Promise<boolean> => {
     // Retry connection with exponential backoff
     if (retryCount < maxRetries) {
       connectionRetries = retryCount + 1;
-      const delay = retryDelay * Math.pow(2, retryCount);
+      const delay = baseRetryDelay * Math.pow(2, retryCount);
       
       console.log(`🔄 Retrying connection in ${delay}ms...`);
       
-      setTimeout(() => {
+      reconnectTimeout = setTimeout(() => {
         testConnection(retryCount + 1);
       }, delay);
     } else {
       console.warn('⚠️ Max connection retries reached - running in offline mode');
       window.dispatchEvent(new CustomEvent('supabase-disconnected', { detail: { connected: false } }));
+      connectionRetries = 0; // Reset for future attempts
     }
     
     return false;
   }
 };
 
-// Initialize connection
-testConnection();
+// Heartbeat monitoring to detect connection drops
+const startHeartbeat = () => {
+  // Clear existing heartbeat
+  if (heartbeatInterval) {
+    clearInterval(heartbeatInterval);
+  }
 
-// Monitor connection status
-const monitorConnection = () => {
-  setInterval(async () => {
-    if (!isConnected) {
-      await testConnection();
+  heartbeatInterval = setInterval(async () => {
+    if (isConnected && navigator.onLine) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+        const { error } = await supabase
+          .from('news')
+          .select('count')
+          .limit(1)
+          .abortSignal(controller.signal);
+
+        clearTimeout(timeoutId);
+
+        if (error) {
+          throw error;
+        }
+      } catch (error) {
+        console.warn('💔 Heartbeat failed, connection lost:', error);
+        isConnected = false;
+        window.dispatchEvent(new CustomEvent('supabase-disconnected', { detail: { connected: false } }));
+        
+        // Attempt to reconnect
+        setTimeout(() => {
+          if (!isConnected) {
+            testConnection();
+          }
+        }, 2000);
+      }
     }
-  }, 30000); // Check every 30 seconds
+  }, 15000); // Check every 15 seconds
 };
 
-// Start monitoring after initial load
-setTimeout(monitorConnection, 5000);
+const stopHeartbeat = () => {
+  if (heartbeatInterval) {
+    clearInterval(heartbeatInterval);
+    heartbeatInterval = null;
+  }
+};
+// Initialize connection
+testConnection();
 
 // Handle network status changes
 if (typeof window !== 'undefined') {
   window.addEventListener('online', () => {
     console.log('🌐 Network connection restored');
+    connectionRetries = 0; // Reset retry count
     testConnection();
   });
   
   window.addEventListener('offline', () => {
     console.log('📡 Network connection lost');
     isConnected = false;
+    stopHeartbeat();
+    if (reconnectTimeout) {
+      clearTimeout(reconnectTimeout);
+      reconnectTimeout = null;
+    }
     window.dispatchEvent(new CustomEvent('supabase-disconnected', { detail: { connected: false } }));
+  });
+
+  // Handle page visibility changes
+  window.addEventListener('visibilitychange', () => {
+    if (!document.hidden && !isConnected && navigator.onLine) {
+      console.log('👁️ Page became visible, checking connection');
+      testConnection();
+    }
+  });
+
+  // Cleanup on page unload
+  window.addEventListener('beforeunload', () => {
+    stopHeartbeat();
+    if (reconnectTimeout) {
+      clearTimeout(reconnectTimeout);
+    }
   });
 }
 
 // Export connection utilities
 export const getConnectionStatus = () => isConnected;
-export const forceReconnect = () => testConnection();
+export const forceReconnect = () => {
+  connectionRetries = 0;
+  if (reconnectTimeout) {
+    clearTimeout(reconnectTimeout);
+    reconnectTimeout = null;
+  }
+  return testConnection();
+};
 export const getRetryCount = () => connectionRetries;
 
 // Type aliases for union types

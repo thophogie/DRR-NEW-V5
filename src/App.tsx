@@ -64,6 +64,7 @@ function App() {
         <DataProvider>
           <PagesProvider>
             <Router>
+            <Router future={{ v7_startTransition: true }}>
               <Routes>
                 {/* Public Routes */}
                 <Route path="/" element={<PublicLayout />}>

@@ -54,6 +54,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [videos, setVideos] = useState<VideoItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
+  const maxRetries = 3;
 
   useEffect(() => {
     fetchAllData();
@@ -122,6 +124,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       setLoading(true);
       setError(null);
+      setRetryCount(0);
 
       // Optional: show offline message if not connected
       if (typeof navigator !== "undefined" && !navigator.onLine) {
@@ -143,13 +146,24 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setGallery(galleryData);
       setVideos(videosData);
     } catch (err: any) {
+      console.error('Data fetch error:', err);
+      
       // Specific handling for fetch errors
       if (err instanceof TypeError && err.message === "Failed to fetch") {
-        setError("Network error: Unable to connect to the backend service. Please check your network, CORS settings, and Supabase configuration.");
-        console.error('Error fetching data: Network/CORS/Supabase endpoint issue:', err);
+        if (retryCount < maxRetries) {
+          console.log(`🔄 Retrying data fetch (${retryCount + 1}/${maxRetries})`);
+          setRetryCount(prev => prev + 1);
+          
+          // Retry with exponential backoff
+          setTimeout(() => {
+            fetchAllData();
+          }, 1000 * Math.pow(2, retryCount));
+          return;
+        } else {
+          setError("Network error: Unable to connect to the database. Please check your network connection and try refreshing the page.");
+        }
       } else {
         setError(err instanceof Error ? err.message : 'An error occurred');
-        console.error('Error fetching data:', err);
       }
     } finally {
       setLoading(false);

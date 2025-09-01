@@ -15,7 +15,10 @@ export class DatabaseManager {
   private isConnected = false;
   private connectionPromise: Promise<boolean> | null = null;
   private lastHealthCheck = 0;
-  private healthCheckInterval = 30000; // 30 seconds
+  private healthCheckInterval = 15000; // 15 seconds
+  private connectionTimeout = 8000; // 8 seconds
+  private maxRetries = 3;
+  private retryDelay = 2000;
 
   constructor() {
     this.initializeConnection();
@@ -45,14 +48,22 @@ export class DatabaseManager {
 
   private async quickHealthCheck(): Promise<boolean> {
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), this.connectionTimeout);
+
       const { error } = await supabase
         .from('news')
         .select('count')
-        .limit(1);
+        .limit(1)
+        .abortSignal(controller.signal);
+      
+      clearTimeout(timeoutId);
       
       if (error) throw error;
+      this.lastHealthCheck = Date.now();
       return true;
     } catch (error) {
+      this.isConnected = false;
       throw error;
     }
   }
@@ -84,7 +95,7 @@ export class DatabaseManager {
       
       // Test connection with timeout
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 8000);
+      const timeoutId = setTimeout(() => controller.abort(), this.connectionTimeout);
       
       const { data, error } = await supabase
         .from('news')
@@ -112,6 +123,26 @@ export class DatabaseManager {
     }
   }
 
+  async reconnectWithRetry(): Promise<boolean> {
+    for (let attempt = 1; attempt <= this.maxRetries; attempt++) {
+      console.log(`🔄 Reconnection attempt ${attempt}/${this.maxRetries}`);
+      
+      const success = await this.testConnection();
+      if (success) {
+        console.log('✅ Reconnection successful');
+        return true;
+      }
+      
+      if (attempt < this.maxRetries) {
+        const delay = this.retryDelay * attempt;
+        console.log(`⏳ Waiting ${delay}ms before next attempt`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+    
+    console.error('❌ All reconnection attempts failed');
+    return false;
+  }
   getConnectionStatus(): boolean {
     return this.isConnected;
   }
@@ -122,12 +153,18 @@ export class DatabaseManager {
 
   async ensureConnection(): Promise<boolean> {
     if (!this.isConnected) {
-      return await this.testConnection();
+      return await this.reconnectWithRetry();
     }
     
     // Check if health check is stale
     if (Date.now() - this.lastHealthCheck > this.healthCheckInterval) {
-      return await this.testConnection();
+      try {
+        await this.quickHealthCheck();
+        return true;
+      } catch (error) {
+        console.warn('Stale connection detected, reconnecting...');
+        return await this.reconnectWithRetry();
+      }
     }
     
     return true;
@@ -499,7 +536,7 @@ async healthCheck(): Promise<{ status: 'healthy' | 'unhealthy'; message: string 
       
       // Test database connection with timeout
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    const timeoutId = setTimeout(() => controller.abort(), this.connectionTimeout);
 
     const { error } = await supabase
       .from('resources')
@@ -512,8 +549,10 @@ async healthCheck(): Promise<{ status: 'healthy' | 'unhealthy'; message: string 
     if (error) throw error;
 
     this.lastHealthCheck = Date.now();
+    this.isConnected = true;
     return { status: 'healthy', message: 'Database connection successful' };
   } catch (error: any) {
+    this.isConnected = false;
     if (error.name === 'AbortError') {
       return { status: 'unhealthy', message: 'Connection timeout' };
     }

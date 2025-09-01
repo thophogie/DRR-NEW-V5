@@ -4,6 +4,7 @@ import React, {
   useState,
   useEffect,
   useCallback,
+  useRef,
   type ReactNode,
 } from 'react';
 import { supabase, getConnectionStatus, forceReconnect } from '../lib/supabase';
@@ -34,6 +35,11 @@ function DatabaseProvider({ children }: { children: ReactNode }) {
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const [isReconnecting, setIsReconnecting] = useState(false);
   const [lastConnectionCheck, setLastConnectionCheck] = useState<Date | null>(null);
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const healthCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const connectionRetryCountRef = useRef(0);
+  const maxRetries = 5;
+  const baseRetryDelay = 2000; // 2 seconds
 
   const testSupabaseConnection = useCallback(async () => {
     setIsReconnecting(true);
@@ -52,12 +58,13 @@ function DatabaseProvider({ children }: { children: ReactNode }) {
           'Supabase not configured. Please click "Connect to Supabase" button to set up your database connection.'
         );
         setIsReconnecting(false);
+        connectionRetryCountRef.current = 0;
         return;
       }
 
       // Test basic connection with timeout
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout
       
       try {
         const { data, error } = await supabase
@@ -83,13 +90,18 @@ function DatabaseProvider({ children }: { children: ReactNode }) {
       if (healthCheck.status === 'healthy') {
         setIsConnected(true);
         setConnectionError(null);
+        connectionRetryCountRef.current = 0;
         console.log('✅ Database connection established successfully');
         
         // Dispatch connection event
         window.dispatchEvent(new CustomEvent('database-connected'));
+        
+        // Start periodic health monitoring
+        startHealthMonitoring();
       } else {
         setIsConnected(false);
         setConnectionError(healthCheck.message);
+        scheduleReconnect();
       }
     } catch (error) {
       console.error('Supabase connection error:', error);
@@ -100,13 +112,70 @@ function DatabaseProvider({ children }: { children: ReactNode }) {
       
       // Dispatch disconnection event
       window.dispatchEvent(new CustomEvent('database-disconnected'));
+      
+      // Schedule reconnection attempt
+      scheduleReconnect();
     } finally {
       setIsReconnecting(false);
     }
   }, []);
 
+  const scheduleReconnect = useCallback(() => {
+    if (connectionRetryCountRef.current >= maxRetries) {
+      console.warn('⚠️ Max reconnection attempts reached. Manual intervention required.');
+      setConnectionError('Connection failed after multiple attempts. Please check your configuration.');
+      return;
+    }
+
+    const retryDelay = baseRetryDelay * Math.pow(2, connectionRetryCountRef.current);
+    connectionRetryCountRef.current++;
+
+    console.log(`🔄 Scheduling reconnection attempt ${connectionRetryCountRef.current}/${maxRetries} in ${retryDelay}ms`);
+
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+    }
+
+    reconnectTimeoutRef.current = setTimeout(() => {
+      if (!isConnected) {
+        console.log(`🔄 Attempting reconnection ${connectionRetryCountRef.current}/${maxRetries}`);
+        testSupabaseConnection();
+      }
+    }, retryDelay);
+  }, [isConnected, testSupabaseConnection]);
+
+  const startHealthMonitoring = useCallback(() => {
+    // Clear existing interval
+    if (healthCheckIntervalRef.current) {
+      clearInterval(healthCheckIntervalRef.current);
+    }
+
+    // Start periodic health checks every 30 seconds
+    healthCheckIntervalRef.current = setInterval(async () => {
+      if (isConnected && !isReconnecting) {
+        try {
+          const healthCheck = await databaseManager.healthCheck();
+          if (healthCheck.status !== 'healthy') {
+            console.warn('⚠️ Health check failed, marking as disconnected');
+            setIsConnected(false);
+            setConnectionError(healthCheck.message);
+            scheduleReconnect();
+          }
+        } catch (error) {
+          console.warn('⚠️ Health check error:', error);
+          setIsConnected(false);
+          setConnectionError('Health check failed');
+          scheduleReconnect();
+        }
+      }
+    }, 30000); // 30 seconds
+  }, [isConnected, isReconnecting, scheduleReconnect]);
   const handleForceReconnect = useCallback(async () => {
     console.log('🔄 Force reconnecting to Supabase...');
+    connectionRetryCountRef.current = 0; // Reset retry count
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+    }
     await forceReconnect();
     await testSupabaseConnection();
   }, [testSupabaseConnection]);
@@ -117,6 +186,7 @@ function DatabaseProvider({ children }: { children: ReactNode }) {
     // Listen for network status changes
     const handleOnline = () => {
       console.log('🌐 Network restored - testing database connection');
+      connectionRetryCountRef.current = 0; // Reset retry count on network restore
       testSupabaseConnection();
     };
     
@@ -124,17 +194,26 @@ function DatabaseProvider({ children }: { children: ReactNode }) {
       console.log('📡 Network lost');
       setIsConnected(false);
       setConnectionError('Network connection lost');
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
+      if (healthCheckIntervalRef.current) {
+        clearInterval(healthCheckIntervalRef.current);
+      }
     };
     
     // Listen for Supabase connection events
     const handleSupabaseConnected = () => {
       setIsConnected(true);
       setConnectionError(null);
+      connectionRetryCountRef.current = 0;
+      startHealthMonitoring();
     };
     
     const handleSupabaseDisconnected = () => {
       setIsConnected(false);
       setConnectionError('Database connection lost');
+      scheduleReconnect();
     };
     
     window.addEventListener('online', handleOnline);
@@ -142,21 +221,20 @@ function DatabaseProvider({ children }: { children: ReactNode }) {
     window.addEventListener('supabase-connected', handleSupabaseConnected);
     window.addEventListener('supabase-disconnected', handleSupabaseDisconnected);
     
-    // Periodic connection health check
-    const healthCheckInterval = setInterval(() => {
-      if (navigator.onLine && !isConnected) {
-        testSupabaseConnection();
-      }
-    }, 60000); // Check every minute
-    
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
       window.removeEventListener('supabase-connected', handleSupabaseConnected);
       window.removeEventListener('supabase-disconnected', handleSupabaseDisconnected);
-      clearInterval(healthCheckInterval);
+      
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
+      if (healthCheckIntervalRef.current) {
+        clearInterval(healthCheckIntervalRef.current);
+      }
     };
-  }, [testSupabaseConnection]);
+  }, [testSupabaseConnection, scheduleReconnect, startHealthMonitoring]);
 
   return (
     <DatabaseContext.Provider

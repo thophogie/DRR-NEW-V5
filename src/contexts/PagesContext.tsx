@@ -46,6 +46,8 @@ export const PagesProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [resources, setResources] = useState<Resource[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
+  const maxRetries = 3;
 
   useEffect(() => {
     fetchAllData();
@@ -81,6 +83,7 @@ export const PagesProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     try {
       setLoading(true);
       setError(null);
+      setRetryCount(0);
 
       // Fetch pages
       const { data: pagesData, error: pagesError } = await supabase
@@ -122,8 +125,24 @@ export const PagesProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setSections(sectionsData || []);
       setResources(resourcesData || []);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
-      console.error('Error fetching pages data:', err);
+      console.error('Pages data fetch error:', err);
+      
+      if (err instanceof TypeError && err.message === "Failed to fetch") {
+        if (retryCount < maxRetries) {
+          console.log(`🔄 Retrying pages data fetch (${retryCount + 1}/${maxRetries})`);
+          setRetryCount(prev => prev + 1);
+          
+          // Retry with exponential backoff
+          setTimeout(() => {
+            fetchAllData();
+          }, 1000 * Math.pow(2, retryCount));
+          return;
+        } else {
+          setError("Network error: Unable to load page data. Please check your connection and try refreshing.");
+        }
+      } else {
+        setError(err instanceof Error ? err.message : 'An error occurred');
+      }
     } finally {
       setLoading(false);
     }

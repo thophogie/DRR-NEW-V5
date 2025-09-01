@@ -5,7 +5,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { DataProvider } from './contexts/DataContext';
 import { DatabaseProvider } from './contexts/DatabaseContext';
 import { PagesProvider } from './contexts/PagesContext';
-import { PublicLayout } from './layouts/PublicLayout';
+
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 
 

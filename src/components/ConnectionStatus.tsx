@@ -58,7 +58,15 @@ const ConnectionStatus: React.FC = () => {
       const results = await supabaseSetup.runDiagnostics();
       setDiagnostics(results);
     } catch (error) {
-      console.error('Diagnostics failed:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Diagnostics failed';
+      console.error('Diagnostics failed:', errorMessage);
+      setDiagnostics({
+        overall: 'error',
+        connection: { isConnected: false, tables: {}, policies: {} },
+        environment: { valid: false, issues: ['Diagnostics failed to run'] },
+        auth: { working: false, error: errorMessage },
+        recommendations: ['Check your network connection and try again']
+      });
     } finally {
       setIsRunningDiagnostics(false);
     }

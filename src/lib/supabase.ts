@@ -122,22 +122,35 @@ const startHeartbeat = () => {
   heartbeatInterval = setInterval(async () => {
     if (isConnected && navigator.onLine) {
       try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000);
+        let controller: AbortController | undefined;
+        let timeoutId: NodeJS.Timeout;
+        
+        try {
+          controller = new AbortController();
+          timeoutId = setTimeout(() => {
+            if (controller && !controller.signal.aborted) {
+              controller.abort();
+            }
+          }, 5000);
 
-        const { error } = await supabase
-          .from('news')
-          .select('count')
-          .limit(1)
-          .abortSignal(controller.signal);
+          const { error } = await supabase
+            .from('news')
+            .select('count')
+            .limit(1)
+            .abortSignal(controller.signal);
 
-        clearTimeout(timeoutId);
+          clearTimeout(timeoutId);
 
-        if (error) {
-          throw error;
+          if (error) {
+            throw error;
+          }
+        } catch (fetchError) {
+          clearTimeout(timeoutId);
+          throw fetchError;
         }
       } catch (error) {
-        console.warn('💔 Heartbeat failed, connection lost:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        console.warn('💔 Heartbeat failed, connection lost:', errorMessage);
         isConnected = false;
         window.dispatchEvent(new CustomEvent('supabase-disconnected', { detail: { connected: false } }));
         

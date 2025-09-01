@@ -33,7 +33,7 @@ const Login: React.FC = () => {
   // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated) {
-      navigate('/admin');
+      navigate('/admin', { replace: true });
     }
   }, [isAuthenticated, navigate]);
 

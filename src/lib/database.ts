@@ -557,27 +557,38 @@ async healthCheck(): Promise<{ status: 'healthy' | 'unhealthy'; message: string 
       return { status: 'unhealthy', message: 'No network connection' };
     }
 
-      
-      // Test database connection with timeout
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), this.connectionTimeout);
+    // Test database connection with proper timeout handling
+    let controller: AbortController | undefined;
+    let timeoutId: NodeJS.Timeout;
 
-    const { error } = await supabase
-      .from('resources')
-      .select('*')
-      .limit(1)
-      .abortSignal(controller.signal);
+    try {
+      controller = new AbortController();
+      timeoutId = setTimeout(() => {
+        if (controller && !controller.signal.aborted) {
+          controller.abort();
+        }
+      }, this.connectionTimeout);
 
-    clearTimeout(timeoutId);
+      const { error } = await supabase
+        .from('resources')
+        .select('*')
+        .limit(1)
+        .abortSignal(controller.signal);
 
-    if (error) throw error;
+      clearTimeout(timeoutId);
 
-    this.lastHealthCheck = Date.now();
-    this.isConnected = true;
-    return { status: 'healthy', message: 'Database connection successful' };
+      if (error) throw error;
+
+      this.lastHealthCheck = Date.now();
+      this.isConnected = true;
+      return { status: 'healthy', message: 'Database connection successful' };
+    } catch (error) {
+      clearTimeout(timeoutId);
+      throw error;
+    }
   } catch (error: any) {
     this.isConnected = false;
-    if (error.name === 'AbortError') {
+    if (error instanceof Error && error.name === 'AbortError') {
       return { status: 'unhealthy', message: 'Connection timeout' };
     }
     return {

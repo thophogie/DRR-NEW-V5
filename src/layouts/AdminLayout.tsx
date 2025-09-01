@@ -175,9 +175,10 @@ const AdminLayout: React.FC = () => {
             <button
               onClick={handleLogout}
               className="flex items-center w-full px-3 py-2 text-sm text-gray-300 hover:text-white hover:bg-blue-700 rounded transition-colors"
+              disabled={loading}
             >
               <LogOut className="mr-2 h-4 w-4" />
-              Logout
+              {loading ? 'Signing out...' : 'Logout'}
             </button>
           </div>
         </div>

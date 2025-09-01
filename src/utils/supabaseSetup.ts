@@ -22,12 +22,37 @@ export class SupabaseSetup {
     };
 
     try {
-      // Test basic connection
-      const { data, error } = await supabase.from('news').select('count').limit(1);
+      // Test basic connection with timeout
+      let controller: AbortController | undefined;
+      let timeoutId: NodeJS.Timeout;
       
-      if (error) {
-        status.error = `Connection failed: ${error.message}`;
-        return status;
+      try {
+        controller = new AbortController();
+        timeoutId = setTimeout(() => {
+          if (controller && !controller.signal.aborted) {
+            controller.abort();
+          }
+        }, 8000);
+        
+        const { data, error } = await supabase
+          .from('news')
+          .select('count')
+          .limit(1)
+          .abortSignal(controller.signal);
+        
+        clearTimeout(timeoutId);
+        
+        if (error) {
+          status.error = `Connection failed: ${error.message}`;
+          return status;
+        }
+      } catch (fetchError) {
+        clearTimeout(timeoutId);
+        if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+          status.error = 'Connection timeout - please check your network';
+          return status;
+        }
+        throw fetchError;
       }
 
       status.isConnected = true;
@@ -41,7 +66,10 @@ export class SupabaseSetup {
 
       for (const table of requiredTables) {
         try {
-          const { error: tableError } = await supabase.from(table).select('count').limit(1);
+          const { error: tableError } = await supabase
+            .from(table)
+            .select('count')
+            .limit(1);
           status.tables[table] = !tableError;
         } catch {
           status.tables[table] = false;
@@ -50,7 +78,8 @@ export class SupabaseSetup {
 
       return status;
     } catch (error) {
-      status.error = error instanceof Error ? error.message : 'Unknown error';
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      status.error = errorMessage;
       return status;
     }
   }

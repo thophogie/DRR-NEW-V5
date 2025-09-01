@@ -1,11 +1,20 @@
-import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import ErrorBoundary from './components/ErrorBoundary';
-import LoadingSpinner from './components/LoadingSpinner';
-import { AuthProvider, useAuth } from './contexts/AuthContext';
-import { DataProvider } from './contexts/DataContext';
-import { DatabaseProvider } from './contexts/DatabaseContext';
-import { PagesProvider } from './contexts/PagesContext';
+
+<Router future={{ v7_relativeSplatPath: true }}>
+  <ErrorBoundary>
+    <PagesProvider>
+      <DataProvider>
+        <AuthProvider>
+          <DatabaseProvider>
+            <Routes>
+              {/* your routes here */}
+            </Routes>
+          </DatabaseProvider>
+        </AuthProvider>
+      </DataProvider>
+    </PagesProvider>
+  </ErrorBoundary>
+</Router>
 
 // Public Pages
 import PublicLayout from './layouts/PublicLayout';

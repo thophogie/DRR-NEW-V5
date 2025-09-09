@@ -1,31 +1,4 @@
-/*
-  # Add Videos Table
-
-  1. New Tables
-    - `videos`
-      - `id` (uuid, primary key)
-      - `title` (text, required)
-      - `description` (text, optional)
-      - `video_url` (text, required)
-      - `thumbnail` (text, required)
-      - `category` (text, optional)
-      - `date` (date, optional)
-      - `location` (text, optional)
-      - `duration` (text, optional)
-      - `tags` (text array, default empty)
-      - `status` (enum: published/draft, default draft)
-      - `featured` (boolean, default false)
-      - `view_count` (integer, default 0)
-      - `created_at` (timestamp)
-      - `updated_at` (timestamp)
-
-  2. Security
-    - Enable RLS on `videos` table
-    - Add policy for public to read published videos
-    - Add policy for authenticated users to manage all videos
-*/
-
--- Create videos tapublic.your_tablepublic.your_tableble
+-- Create videos table
 CREATE TABLE IF NOT EXISTS videos (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   title text NOT NULL,
@@ -47,19 +20,34 @@ CREATE TABLE IF NOT EXISTS videos (
 -- Enable RLS
 ALTER TABLE videos ENABLE ROW LEVEL SECURITY;
 
--- Create policies
+-- Policies
 CREATE POLICY "Public can read published videos"
   ON videos
   FOR SELECT
   TO anon, authenticated
   USING (status = 'published');
 
-CREATE POLICY "Authenticated users can manage all videos"
+-- INSERT: only WITH CHECK
+CREATE POLICY "Authenticated users can insert videos"
   ON videos
-  FOR ALL
+  FOR INSERT
+  TO authenticated
+  WITH CHECK (true);
+
+-- UPDATE: keep USING + WITH CHECK
+CREATE POLICY "Authenticated users can update videos"
+  ON videos
+  FOR UPDATE
   TO authenticated
   USING (true)
   WITH CHECK (true);
+
+-- DELETE: keep USING
+CREATE POLICY "Authenticated users can delete videos"
+  ON videos
+  FOR DELETE
+  TO authenticated
+  USING (true);
 
 -- Create updated_at trigger
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -83,7 +71,7 @@ BEGIN
   END IF;
 END $$;
 
--- Insert sample video data
+-- Sample data
 INSERT INTO videos (title, description, video_url, thumbnail, category, date, location, duration, tags, status, featured, view_count) VALUES
 ('BDRRM Training Workshop', 'Comprehensive training for barangay officials on disaster risk reduction', 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForestCamping.mp4', 'https://res.cloudinary.com/dedcmctqk/image/upload/v1750575265/487673077_1062718335885316_7552782387266701410_n_gexfn2.jpg', 'Training', '2024-01-15', 'Municipal Hall', '3:45', ARRAY['training', 'barangay', 'officials'], 'published', true, 245),
 ('Earthquake Drill Documentation', 'Community-wide earthquake preparedness drill', 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/WeAreGoingOnBullrun.mp4', 'https://res.cloudinary.com/dedcmctqk/image/upload/v1750575261/489043126_1065374988952984_1331524645056736117_n_fbmvch.jpg', 'Drill', '2024-01-20', 'Various Barangays', '2:30', ARRAY['earthquake', 'drill', 'community'], 'published', true, 189),

@@ -1,556 +1,345 @@
-/*
-  # Unified MDRRMO Database Schema
-  
-  This migration consolidates all previous migrations into a single, comprehensive schema
-  for the MDRRMO Pio Duran system.
-
-  1. Core Tables
-    - news - News articles and announcements
-    - services - MDRRMO services and offerings  
-    - incident_reports - Public incident reports with image support
-    - gallery - Photo gallery with bulk upload support
-    - pages - Dynamic page content management
-    - page_sections - Modular page sections
-    - resources - Downloadable resources management
-    - emergency_alerts - Emergency alert system with frontend display
-    - social_posts - Social media content management
-    - navigation_items - Dynamic navigation menu management
-    - organizational_hierarchy - Staff organizational structure
-    - key_personnel - Key personnel management
-    - emergency_hotlines - Emergency contact management
-    - system_settings - Application settings storage
-    - users - User management system
-    - weather_data - Weather information management
-
-  2. Security
-    - Row Level Security (RLS) enabled on all tables
-    - Public read access for published content
-    - Authenticated user management access
-    - Proper access policies for each table
-
-  3. Storage
-    - Gallery images bucket
-    - Incident images bucket
-    - File upload support with proper policies
-
-  4. Sample Data
-    - Pre-populated with comprehensive demo content
-    - Ready for immediate use and testing
-*/
-
--- Create function to automatically update updated_at timestamp
-CREATE OR REPLACE FUNCTION update_updated_at_column()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.updated_at = now();
-    RETURN NEW;
-END;
-$$ language 'plpgsql';
-
--- News table
-CREATE TABLE IF NOT EXISTS news (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  title text NOT NULL,
-  excerpt text,
-  content text,
-  image text,
-  author text,
-  status text DEFAULT 'draft',
-  date date DEFAULT CURRENT_DATE,
-  created_at timestamptz DEFAULT now(),
-  updated_at timestamptz DEFAULT now(),
-  CONSTRAINT news_status_check CHECK (status IN ('published', 'draft'))
-);
-
-ALTER TABLE news ENABLE ROW LEVEL SECURITY;
-
+-- News
 CREATE POLICY "Anyone can read published news"
   ON news FOR SELECT
   USING (status = 'published');
 
 CREATE POLICY "Authenticated users can manage news"
-  ON news FOR ALL
+  ON news FOR INSERT
+  TO authenticated
+  WITH CHECK (true);
+
+CREATE POLICY "Authenticated users can manage news"
+  ON news FOR UPDATE
   TO authenticated
   USING (true) WITH CHECK (true);
 
--- Services table
-CREATE TABLE IF NOT EXISTS services (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  title text NOT NULL,
-  description text,
-  icon text DEFAULT 'Shield',
-  tags jsonb DEFAULT '[]'::jsonb,
-  status text DEFAULT 'active',
-  created_at timestamptz DEFAULT now(),
-  updated_at timestamptz DEFAULT now(),
-  CONSTRAINT services_status_check CHECK (status IN ('active', 'inactive'))
-);
+CREATE POLICY "Authenticated users can manage news"
+  ON news FOR DELETE
+  TO authenticated
+  USING (true);
 
-ALTER TABLE services ENABLE ROW LEVEL SECURITY;
-
+-- Services
 CREATE POLICY "Anyone can read active services"
   ON services FOR SELECT
   USING (status = 'active');
 
 CREATE POLICY "Authenticated users can manage services"
-  ON services FOR ALL
+  ON services FOR INSERT
+  TO authenticated
+  WITH CHECK (true);
+
+CREATE POLICY "Authenticated users can manage services"
+  ON services FOR UPDATE
   TO authenticated
   USING (true) WITH CHECK (true);
 
--- Incident reports table with image support
-CREATE TABLE IF NOT EXISTS incident_reports (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  reference_number text UNIQUE NOT NULL,
-  reporter_name text NOT NULL,
-  contact_number text NOT NULL,
-  location text,
-  incident_type text,
-  description text,
-  urgency text DEFAULT 'MEDIUM',
-  status text DEFAULT 'pending',
-  image_url text,
-  date_reported timestamptz DEFAULT now(),
-  updated_at timestamptz DEFAULT now(),
-  CONSTRAINT incident_urgency_check CHECK (urgency IN ('LOW', 'MEDIUM', 'HIGH')),
-  CONSTRAINT incident_status_check CHECK (status IN ('pending', 'in-progress', 'resolved'))
-);
+CREATE POLICY "Authenticated users can manage services"
+  ON services FOR DELETE
+  TO authenticated
+  USING (true);
 
-ALTER TABLE incident_reports ENABLE ROW LEVEL SECURITY;
-
+-- Incident reports
 CREATE POLICY "Authenticated users can read all incident reports"
   ON incident_reports FOR SELECT
-  TO authenticated USING (true);
+  TO authenticated
+  USING (true);
 
 CREATE POLICY "Anyone can create incident reports"
   ON incident_reports FOR INSERT
-  USING (true) WITH CHECK (true);
+  WITH CHECK (true);
 
 CREATE POLICY "Authenticated users can update incident reports"
   ON incident_reports FOR UPDATE
-  TO authenticated USING (true) WITH CHECK (true);
+  TO authenticated
+  USING (true) WITH CHECK (true);
 
--- Gallery table with bulk upload support
-CREATE TABLE IF NOT EXISTS gallery (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  title text NOT NULL,
-  description text,
-  image text,
-  category text,
-  date date DEFAULT CURRENT_DATE,
-  location text,
-  tags jsonb DEFAULT '[]'::jsonb,
-  status text DEFAULT 'draft',
-  featured boolean DEFAULT false,
-  bulk_upload_id text,
-  file_path text,
-  created_at timestamptz DEFAULT now(),
-  updated_at timestamptz DEFAULT now(),
-  CONSTRAINT gallery_status_check CHECK (status IN ('published', 'draft'))
-);
-
-ALTER TABLE gallery ENABLE ROW LEVEL SECURITY;
-
+-- Gallery
 CREATE POLICY "Anyone can read published gallery items"
   ON gallery FOR SELECT
   USING (status = 'published');
 
 CREATE POLICY "Authenticated users can manage gallery"
-  ON gallery FOR ALL
+  ON gallery FOR INSERT
+  TO authenticated
+  WITH CHECK (true);
+
+CREATE POLICY "Authenticated users can manage gallery"
+  ON gallery FOR UPDATE
   TO authenticated
   USING (true) WITH CHECK (true);
 
--- Pages table for dynamic content
-CREATE TABLE IF NOT EXISTS pages (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  title text NOT NULL,
-  slug text UNIQUE NOT NULL,
-  content text NOT NULL,
-  meta_description text,
-  meta_keywords text,
-  template text DEFAULT 'default',
-  hero_image text,
-  hero_title text,
-  hero_subtitle text,
-  status text DEFAULT 'draft',
-  featured boolean DEFAULT false,
-  view_count integer DEFAULT 0,
-  created_at timestamptz DEFAULT now(),
-  updated_at timestamptz DEFAULT now(),
-  CONSTRAINT pages_status_check CHECK (status IN ('published', 'draft')),
-  CONSTRAINT pages_template_check CHECK (template IN ('default', 'about', 'services', 'news', 'resources', 'disaster-plan'))
-);
+CREATE POLICY "Authenticated users can manage gallery"
+  ON gallery FOR DELETE
+  TO authenticated
+  USING (true);
 
-ALTER TABLE pages ENABLE ROW LEVEL SECURITY;
-
+-- Pages
 CREATE POLICY "Anyone can read published pages"
   ON pages FOR SELECT
   USING (status = 'published');
 
 CREATE POLICY "Authenticated users can manage pages"
-  ON pages FOR ALL
+  ON pages FOR INSERT
+  TO authenticated
+  WITH CHECK (true);
+
+CREATE POLICY "Authenticated users can manage pages"
+  ON pages FOR UPDATE
   TO authenticated
   USING (true) WITH CHECK (true);
 
--- Page sections table
-CREATE TABLE IF NOT EXISTS page_sections (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  page_id uuid REFERENCES pages(id) ON DELETE CASCADE,
-  type text NOT NULL,
-  title text,
-  content text,
-  data jsonb DEFAULT '{}'::jsonb,
-  order_index integer DEFAULT 1,
-  is_active boolean DEFAULT true,
-  created_at timestamptz DEFAULT now(),
-  updated_at timestamptz DEFAULT now(),
-  CONSTRAINT section_type_check CHECK (type IN ('hero', 'content', 'cards', 'stats', 'gallery', 'contact', 'accordion', 'grid', 'timeline'))
-);
+CREATE POLICY "Authenticated users can manage pages"
+  ON pages FOR DELETE
+  TO authenticated
+  USING (true);
 
-ALTER TABLE page_sections ENABLE ROW LEVEL SECURITY;
-
+-- Page sections
 CREATE POLICY "Anyone can read active page sections"
   ON page_sections FOR SELECT
   USING (is_active = true);
 
 CREATE POLICY "Authenticated users can manage page sections"
-  ON page_sections FOR ALL
+  ON page_sections FOR INSERT
+  TO authenticated
+  WITH CHECK (true);
+
+CREATE POLICY "Authenticated users can manage page sections"
+  ON page_sections FOR UPDATE
   TO authenticated
   USING (true) WITH CHECK (true);
 
--- Resources table
-CREATE TABLE IF NOT EXISTS resources (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  title text NOT NULL,
-  description text,
-  file_url text NOT NULL,
-  file_type text DEFAULT 'pdf',
-  file_size bigint DEFAULT 0,
-  category text DEFAULT 'guide',
-  subcategory text,
-  tags jsonb DEFAULT '[]'::jsonb,
-  download_count integer DEFAULT 0,
-  featured boolean DEFAULT false,
-  status text DEFAULT 'draft',
-  created_at timestamptz DEFAULT now(),
-  updated_at timestamptz DEFAULT now(),
-  CONSTRAINT resources_file_type_check CHECK (file_type IN ('pdf', 'doc', 'docx', 'image', 'video', 'zip')),
-  CONSTRAINT resources_category_check CHECK (category IN ('guide', 'form', 'map', 'report', 'plan', 'manual')),
-  CONSTRAINT resources_status_check CHECK (status IN ('published', 'draft'))
-);
+CREATE POLICY "Authenticated users can manage page sections"
+  ON page_sections FOR DELETE
+  TO authenticated
+  USING (true);
 
-ALTER TABLE resources ENABLE ROW LEVEL SECURITY;
-
+-- Resources
 CREATE POLICY "Anyone can read published resources"
   ON resources FOR SELECT
   USING (status = 'published');
 
 CREATE POLICY "Authenticated users can manage resources"
-  ON resources FOR ALL
+  ON resources FOR INSERT
+  TO authenticated
+  WITH CHECK (true);
+
+CREATE POLICY "Authenticated users can manage resources"
+  ON resources FOR UPDATE
   TO authenticated
   USING (true) WITH CHECK (true);
 
--- Emergency alerts table with frontend display
-CREATE TABLE IF NOT EXISTS emergency_alerts (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  type text NOT NULL,
-  severity text NOT NULL,
-  title text NOT NULL,
-  message text NOT NULL,
-  location text,
-  coordinates jsonb,
-  issued_at timestamptz DEFAULT now(),
-  expires_at timestamptz,
-  status text DEFAULT 'draft',
-  channels jsonb DEFAULT '[]'::jsonb,
-  sent_to jsonb DEFAULT '[]'::jsonb,
-  priority integer DEFAULT 3,
-  show_on_frontend boolean DEFAULT true,
-  created_at timestamptz DEFAULT now(),
-  updated_at timestamptz DEFAULT now(),
-  CONSTRAINT alert_type_check CHECK (type IN ('typhoon', 'earthquake', 'flood', 'fire', 'landslide', 'tsunami', 'general')),
-  CONSTRAINT alert_severity_check CHECK (severity IN ('low', 'medium', 'high', 'critical')),
-  CONSTRAINT alert_status_check CHECK (status IN ('draft', 'active', 'expired', 'cancelled')),
-  CONSTRAINT alert_priority_check CHECK (priority BETWEEN 1 AND 5)
-);
+CREATE POLICY "Authenticated users can manage resources"
+  ON resources FOR DELETE
+  TO authenticated
+  USING (true);
 
-ALTER TABLE emergency_alerts ENABLE ROW LEVEL SECURITY;
-
+-- Emergency alerts
 CREATE POLICY "Anyone can read active emergency alerts"
   ON emergency_alerts FOR SELECT
   USING (status = 'active');
 
 CREATE POLICY "Authenticated users can manage emergency alerts"
-  ON emergency_alerts FOR ALL
+  ON emergency_alerts FOR INSERT
+  TO authenticated
+  WITH CHECK (true);
+
+CREATE POLICY "Authenticated users can manage emergency alerts"
+  ON emergency_alerts FOR UPDATE
   TO authenticated
   USING (true) WITH CHECK (true);
 
--- Social posts table
-CREATE TABLE IF NOT EXISTS social_posts (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  platform text NOT NULL,
-  content text NOT NULL,
-  image text,
-  link text,
-  scheduled_time timestamptz,
-  status text DEFAULT 'draft',
-  engagement jsonb DEFAULT '{"likes": 0, "shares": 0, "comments": 0}'::jsonb,
-  created_at timestamptz DEFAULT now(),
-  updated_at timestamptz DEFAULT now(),
-  CONSTRAINT social_platform_check CHECK (platform IN ('facebook', 'twitter', 'instagram', 'youtube')),
-  CONSTRAINT social_status_check CHECK (status IN ('draft', 'scheduled', 'published', 'failed'))
-);
+CREATE POLICY "Authenticated users can manage emergency alerts"
+  ON emergency_alerts FOR DELETE
+  TO authenticated
+  USING (true);
 
-ALTER TABLE social_posts ENABLE ROW LEVEL SECURITY;
-
+-- Social posts
 CREATE POLICY "Anyone can read published social posts"
   ON social_posts FOR SELECT
   USING (status = 'published');
 
 CREATE POLICY "Authenticated users can manage social posts"
-  ON social_posts FOR ALL
+  ON social_posts FOR INSERT
+  TO authenticated
+  WITH CHECK (true);
+
+CREATE POLICY "Authenticated users can manage social posts"
+  ON social_posts FOR UPDATE
   TO authenticated
   USING (true) WITH CHECK (true);
 
--- Navigation items table
-CREATE TABLE IF NOT EXISTS navigation_items (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  label text NOT NULL,
-  path text NOT NULL,
-  icon text DEFAULT 'Home',
-  order_index integer DEFAULT 1,
-  is_active boolean DEFAULT true,
-  is_featured boolean DEFAULT false,
-  parent_id uuid REFERENCES navigation_items(id) ON DELETE SET NULL,
-  created_at timestamptz DEFAULT now(),
-  updated_at timestamptz DEFAULT now()
-);
+CREATE POLICY "Authenticated users can manage social posts"
+  ON social_posts FOR DELETE
+  TO authenticated
+  USING (true);
 
-ALTER TABLE navigation_items ENABLE ROW LEVEL SECURITY;
-
+-- Navigation items
 CREATE POLICY "Anyone can read active navigation items"
   ON navigation_items FOR SELECT
   USING (is_active = true);
 
 CREATE POLICY "Authenticated users can manage navigation items"
-  ON navigation_items FOR ALL
+  ON navigation_items FOR INSERT
+  TO authenticated
+  WITH CHECK (true);
+
+CREATE POLICY "Authenticated users can manage navigation items"
+  ON navigation_items FOR UPDATE
   TO authenticated
   USING (true) WITH CHECK (true);
 
--- Organizational hierarchy table
-CREATE TABLE IF NOT EXISTS organizational_hierarchy (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  name text NOT NULL,
-  designation text NOT NULL,
-  photo text,
-  department text,
-  level integer DEFAULT 1,
-  parent_id uuid REFERENCES organizational_hierarchy(id) ON DELETE SET NULL,
-  order_index integer DEFAULT 1,
-  is_active boolean DEFAULT true,
-  created_at timestamptz DEFAULT now(),
-  updated_at timestamptz DEFAULT now()
-);
+CREATE POLICY "Authenticated users can manage navigation items"
+  ON navigation_items FOR DELETE
+  TO authenticated
+  USING (true);
 
-ALTER TABLE organizational_hierarchy ENABLE ROW LEVEL SECURITY;
-
+-- Organizational hierarchy
 CREATE POLICY "Anyone can read active organizational hierarchy"
   ON organizational_hierarchy FOR SELECT
   USING (is_active = true);
 
 CREATE POLICY "Authenticated users can manage organizational hierarchy"
-  ON organizational_hierarchy FOR ALL
+  ON organizational_hierarchy FOR INSERT
+  TO authenticated
+  WITH CHECK (true);
+
+CREATE POLICY "Authenticated users can manage organizational hierarchy"
+  ON organizational_hierarchy FOR UPDATE
   TO authenticated
   USING (true) WITH CHECK (true);
 
--- Key personnel table
-CREATE TABLE IF NOT EXISTS key_personnel (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  name text NOT NULL,
-  designation text NOT NULL,
-  photo text,
-  bio text,
-  email text,
-  phone text,
-  department text,
-  order_index integer DEFAULT 1,
-  is_featured boolean DEFAULT false,
-  is_active boolean DEFAULT true,
-  created_at timestamptz DEFAULT now(),
-  updated_at timestamptz DEFAULT now()
-);
+CREATE POLICY "Authenticated users can manage organizational hierarchy"
+  ON organizational_hierarchy FOR DELETE
+  TO authenticated
+  USING (true);
 
-ALTER TABLE key_personnel ENABLE ROW LEVEL SECURITY;
-
+-- Key personnel
 CREATE POLICY "Anyone can read active key personnel"
   ON key_personnel FOR SELECT
   USING (is_active = true);
 
 CREATE POLICY "Authenticated users can manage key personnel"
-  ON key_personnel FOR ALL
+  ON key_personnel FOR INSERT
+  TO authenticated
+  WITH CHECK (true);
+
+CREATE POLICY "Authenticated users can manage key personnel"
+  ON key_personnel FOR UPDATE
   TO authenticated
   USING (true) WITH CHECK (true);
 
--- Emergency hotlines table
-CREATE TABLE IF NOT EXISTS emergency_hotlines (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  contact_name text NOT NULL,
-  phone_number text NOT NULL,
-  logo text,
-  department text,
-  description text,
-  is_primary boolean DEFAULT false,
-  order_index integer DEFAULT 1,
-  is_active boolean DEFAULT true,
-  created_at timestamptz DEFAULT now(),
-  updated_at timestamptz DEFAULT now()
-);
+CREATE POLICY "Authenticated users can manage key personnel"
+  ON key_personnel FOR DELETE
+  TO authenticated
+  USING (true);
 
-ALTER TABLE emergency_hotlines ENABLE ROW LEVEL SECURITY;
-
+-- Emergency hotlines
 CREATE POLICY "Anyone can read active emergency hotlines"
   ON emergency_hotlines FOR SELECT
   USING (is_active = true);
 
 CREATE POLICY "Authenticated users can manage emergency hotlines"
-  ON emergency_hotlines FOR ALL
+  ON emergency_hotlines FOR INSERT
+  TO authenticated
+  WITH CHECK (true);
+
+CREATE POLICY "Authenticated users can manage emergency hotlines"
+  ON emergency_hotlines FOR UPDATE
   TO authenticated
   USING (true) WITH CHECK (true);
 
--- System settings table
-CREATE TABLE IF NOT EXISTS system_settings (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  setting_key text UNIQUE NOT NULL,
-  setting_value jsonb NOT NULL,
-  setting_type text DEFAULT 'string',
-  description text,
-  is_public boolean DEFAULT false,
-  created_at timestamptz DEFAULT now(),
-  updated_at timestamptz DEFAULT now(),
-  CONSTRAINT settings_type_check CHECK (setting_type IN ('string', 'number', 'boolean', 'json', 'array'))
-);
+CREATE POLICY "Authenticated users can manage emergency hotlines"
+  ON emergency_hotlines FOR DELETE
+  TO authenticated
+  USING (true);
 
-ALTER TABLE system_settings ENABLE ROW LEVEL SECURITY;
-
+-- System settings
 CREATE POLICY "Anyone can read public settings"
   ON system_settings FOR SELECT
   USING (is_public = true);
 
 CREATE POLICY "Authenticated users can read all settings"
   ON system_settings FOR SELECT
-  TO authenticated USING (true);
+  TO authenticated
+  USING (true);
 
 CREATE POLICY "Authenticated users can manage settings"
-  ON system_settings FOR ALL
+  ON system_settings FOR INSERT
+  TO authenticated
+  WITH CHECK (true);
+
+CREATE POLICY "Authenticated users can manage settings"
+  ON system_settings FOR UPDATE
   TO authenticated
   USING (true) WITH CHECK (true);
 
--- Users table for authentication
-CREATE TABLE IF NOT EXISTS users (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  username text UNIQUE NOT NULL,
-  email text UNIQUE NOT NULL,
-  password_hash text NOT NULL,
-  role text DEFAULT 'editor',
-  name text NOT NULL,
-  avatar text,
-  status text DEFAULT 'active',
-  last_login timestamptz,
-  created_at timestamptz DEFAULT now(),
-  updated_at timestamptz DEFAULT now(),
-  CONSTRAINT users_role_check CHECK (role IN ('admin', 'editor')),
-  CONSTRAINT users_status_check CHECK (status IN ('active', 'inactive'))
-);
+CREATE POLICY "Authenticated users can manage settings"
+  ON system_settings FOR DELETE
+  TO authenticated
+  USING (true);
 
-ALTER TABLE users ENABLE ROW LEVEL SECURITY;
-
+-- Users
 CREATE POLICY "Authenticated users can read all users"
   ON users FOR SELECT
-  TO authenticated USING (true);
+  TO authenticated
+  USING (true);
 
 CREATE POLICY "Authenticated users can manage users"
-  ON users FOR ALL
+  ON users FOR INSERT
+  TO authenticated
+  WITH CHECK (true);
+
+CREATE POLICY "Authenticated users can manage users"
+  ON users FOR UPDATE
   TO authenticated
   USING (true) WITH CHECK (true);
 
--- About sections table
-CREATE TABLE IF NOT EXISTS about_sections (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  title text NOT NULL,
-  content text NOT NULL,
-  image text,
-  order_index integer DEFAULT 1,
-  is_active boolean DEFAULT true,
-  created_at timestamptz DEFAULT now(),
-  updated_at timestamptz DEFAULT now()
-);
+CREATE POLICY "Authenticated users can manage users"
+  ON users FOR DELETE
+  TO authenticated
+  USING (true);
 
-ALTER TABLE about_sections ENABLE ROW LEVEL SECURITY;
-
+-- About sections
 CREATE POLICY "Anyone can read active about sections"
   ON about_sections FOR SELECT
   USING (is_active = true);
 
 CREATE POLICY "Authenticated users can manage about sections"
-  ON about_sections FOR ALL
+  ON about_sections FOR INSERT
+  TO authenticated
+  WITH CHECK (true);
+
+CREATE POLICY "Authenticated users can manage about sections"
+  ON about_sections FOR UPDATE
   TO authenticated
   USING (true) WITH CHECK (true);
 
--- Weather data table
-CREATE TABLE IF NOT EXISTS weather_data (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  temperature integer NOT NULL,
-  humidity integer NOT NULL,
-  wind_speed integer NOT NULL,
-  visibility integer NOT NULL,
-  condition text NOT NULL,
-  description text NOT NULL,
-  location text DEFAULT 'Pio Duran, Albay',
-  alerts jsonb DEFAULT '[]'::jsonb,
-  last_updated timestamptz DEFAULT now(),
-  is_active boolean DEFAULT true,
-  created_at timestamptz DEFAULT now(),
-  updated_at timestamptz DEFAULT now(),
-  CONSTRAINT weather_condition_check CHECK (condition IN ('sunny', 'cloudy', 'rainy', 'stormy'))
-);
+CREATE POLICY "Authenticated users can manage about sections"
+  ON about_sections FOR DELETE
+  TO authenticated
+  USING (true);
 
-ALTER TABLE weather_data ENABLE ROW LEVEL SECURITY;
-
+-- Weather data
 CREATE POLICY "Anyone can read active weather data"
   ON weather_data FOR SELECT
   USING (is_active = true);
 
 CREATE POLICY "Authenticated users can manage weather data"
-  ON weather_data FOR ALL
+  ON weather_data FOR INSERT
+  TO authenticated
+  WITH CHECK (true);
+
+CREATE POLICY "Authenticated users can manage weather data"
+  ON weather_data FOR UPDATE
   TO authenticated
   USING (true) WITH CHECK (true);
 
--- Create triggers for updated_at
-CREATE TRIGGER update_news_updated_at BEFORE UPDATE ON news FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-CREATE TRIGGER update_services_updated_at BEFORE UPDATE ON services FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-CREATE TRIGGER update_incident_reports_updated_at BEFORE UPDATE ON incident_reports FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-CREATE TRIGGER update_gallery_updated_at BEFORE UPDATE ON gallery FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-CREATE TRIGGER update_pages_updated_at BEFORE UPDATE ON pages FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-CREATE TRIGGER update_page_sections_updated_at BEFORE UPDATE ON page_sections FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-CREATE TRIGGER update_resources_updated_at BEFORE UPDATE ON resources FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-CREATE TRIGGER update_emergency_alerts_updated_at BEFORE UPDATE ON emergency_alerts FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-CREATE TRIGGER update_social_posts_updated_at BEFORE UPDATE ON social_posts FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-CREATE TRIGGER update_navigation_items_updated_at BEFORE UPDATE ON navigation_items FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-CREATE TRIGGER update_organizational_hierarchy_updated_at BEFORE UPDATE ON organizational_hierarchy FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-CREATE TRIGGER update_key_personnel_updated_at BEFORE UPDATE ON key_personnel FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-CREATE TRIGGER update_emergency_hotlines_updated_at BEFORE UPDATE ON emergency_hotlines FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-CREATE TRIGGER update_system_settings_updated_at BEFORE UPDATE ON system_settings FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-CREATE TRIGGER update_about_sections_updated_at BEFORE UPDATE ON about_sections FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-CREATE TRIGGER update_weather_data_updated_at BEFORE UPDATE ON weather_data FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE POLICY "Authenticated users can manage weather data"
+  ON weather_data FOR DELETE
+  TO authenticated
+  USING (true);
 
--- Create storage buckets
-INSERT INTO storage.buckets (id, name, public) 
-VALUES 
-  ('gallery', 'gallery', true),
-  ('incidents', 'incidents', true)
-ON CONFLICT (id) DO NOTHING;
-
--- Storage policies for gallery bucket
+-- Storage: gallery bucket
 CREATE POLICY "Anyone can view gallery images"
   ON storage.objects FOR SELECT
   USING (bucket_id = 'gallery');
@@ -561,33 +350,8 @@ CREATE POLICY "Authenticated users can upload gallery images"
   WITH CHECK (bucket_id = 'gallery');
 
 CREATE POLICY "Authenticated users can update gallery images"
-  ON storage.objects FOR UPDATE
-  TO authenticated
-  USING (bucket_id = 'gallery');
 
-CREATE POLICY "Authenticated users can delete gallery images"
-  ON storage.objects FOR DELETE
-  TO authenticated
-  USING (bucket_id = 'gallery');
 
--- Storage policies for incidents bucket
-CREATE POLICY "Anyone can view incident images"
-  ON storage.objects FOR SELECT
-  USING (bucket_id = 'incidents');
-
-CREATE POLICY "Anyone can upload incident images"
-  ON storage.objects FOR INSERT
-  WITH CHECK (bucket_id = 'incidents');
-
-CREATE POLICY "Authenticated users can update incident images"
-  ON storage.objects FOR UPDATE
-  TO authenticated
-  USING (bucket_id = 'incidents');
-
-CREATE POLICY "Authenticated users can delete incident images"
-  ON storage.objects FOR DELETE
-  TO authenticated
-  USING (bucket_id = 'incidents');
 
 -- Insert comprehensive sample data
 

@@ -1,434 +1,352 @@
-/*
-  # Production Authentication System Migration
+-- News
+CREATE POLICY "Anyone can read published news"
+  ON news FOR SELECT
+  USING (status = 'published');
 
-  This migration sets up a production-ready authentication system for MDRRMO Pio Duran.
+CREATE POLICY "Authenticated users can insert news"
+  ON news FOR INSERT
+  TO authenticated
+  WITH CHECK (true);
 
-  ## 1. User Management System
-    - Creates secure user authentication table
-    - Implements proper password hashing
-    - Sets up role-based access control
-    - Configures admin user management
+CREATE POLICY "Authenticated users can update news"
+  ON news FOR UPDATE
+  TO authenticated
+  USING (true) WITH CHECK (true);
 
-  ## 2. Security Features
-    - Row Level Security (RLS) policies
-    - Secure password storage
-    - Session management
-    - Audit logging for login attempts
+CREATE POLICY "Authenticated users can delete news"
+  ON news FOR DELETE
+  TO authenticated
+  USING (true);
 
-  ## 3. Admin User Setup
-    - Creates default admin user
-    - Configures proper user roles
-    - Sets up user status management
+-- Services
+CREATE POLICY "Anyone can read active services"
+  ON services FOR SELECT
+  USING (status = 'active');
 
-  ## 4. Production Constraints
-    - Removes demo/test accounts
-    - Implements proper validation
-    - Sets up secure defaults
-*/
+CREATE POLICY "Authenticated users can insert services"
+  ON services FOR INSERT
+  TO authenticated
+  WITH CHECK (true);
 
--- Enable required extensions
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+CREATE POLICY "Authenticated users can update services"
+  ON services FOR UPDATE
+  TO authenticated
+  USING (true) WITH CHECK (true);
 
--- Create updated_at trigger function if not exists
-CREATE OR REPLACE FUNCTION update_updated_at_column()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.updated_at = CURRENT_TIMESTAMP;
-    RETURN NEW;
-END;
-$$ language 'plpgsql';
+CREATE POLICY "Authenticated users can delete services"
+  ON services FOR DELETE
+  TO authenticated
+  USING (true);
 
--- =============================================
--- PRODUCTION USER MANAGEMENT SYSTEM
--- =============================================
+-- Incident reports
+CREATE POLICY "Authenticated users can read all incident reports"
+  ON incident_reports FOR SELECT
+  TO authenticated
+  USING (true);
 
--- Drop existing users table if it exists (for clean migration)
-DROP TABLE IF EXISTS users CASCADE;
+CREATE POLICY "Anyone can create incident reports"
+  ON incident_reports FOR INSERT
+  WITH CHECK (true);
 
--- Create production users table
-CREATE TABLE users (
-    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    username text UNIQUE NOT NULL CHECK (length(username) >= 3 AND length(username) <= 50),
-    email text UNIQUE NOT NULL CHECK (email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$'),
-    password_hash text NOT NULL,
-    role text NOT NULL DEFAULT 'editor' CHECK (role IN ('admin', 'editor')),
-    name text NOT NULL CHECK (length(name) >= 2 AND length(name) <= 100),
-    avatar text,
-    status text NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'suspended')),
-    last_login timestamptz,
-    login_attempts integer DEFAULT 0,
-    locked_until timestamptz,
-    created_at timestamptz DEFAULT now(),
-    updated_at timestamptz DEFAULT now(),
-    created_by uuid REFERENCES users(id) ON DELETE SET NULL,
-    
-    -- Security constraints
-    CONSTRAINT valid_email_domain CHECK (
-        email LIKE '%@%.%' AND 
-        length(email) >= 5 AND 
-        length(email) <= 255
-    ),
-    CONSTRAINT valid_password_hash CHECK (length(password_hash) >= 50),
-    CONSTRAINT valid_name_format CHECK (name !~ '^[0-9]+$' AND name ~ '^[A-Za-z\s\-\.]+$')
-);
+CREATE POLICY "Authenticated users can update incident reports"
+  ON incident_reports FOR UPDATE
+  TO authenticated
+  USING (true) WITH CHECK (true);
 
--- Create indexes for performance
-CREATE INDEX idx_users_email ON users(email);
-CREATE INDEX idx_users_username ON users(username);
-CREATE INDEX idx_users_status ON users(status);
-CREATE INDEX idx_users_role ON users(role);
-CREATE INDEX idx_users_last_login ON users(last_login);
+-- Gallery
+CREATE POLICY "Anyone can read published gallery items"
+  ON gallery FOR SELECT
+  USING (status = 'published');
 
--- Enable RLS
-ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Authenticated users can insert gallery"
+  ON gallery FOR INSERT
+  TO authenticated
+  WITH CHECK (true);
 
--- Create RLS policies for production security
-CREATE POLICY "Authenticated users can read active users"
-    ON users FOR SELECT
-    TO authenticated
-    USING (status = 'active');
+CREATE POLICY "Authenticated users can update gallery"
+  ON gallery FOR UPDATE
+  TO authenticated
+  USING (true) WITH CHECK (true);
 
-CREATE POLICY "Admin users can manage all users"
-    ON users FOR ALL
-    TO authenticated
-    USING (
-        EXISTS (
-            SELECT 1 FROM users 
-            WHERE id = auth.uid() 
-            AND role = 'admin' 
-            AND status = 'active'
-        )
-    )
-    WITH CHECK (
-        EXISTS (
-            SELECT 1 FROM users 
-            WHERE id = auth.uid() 
-            AND role = 'admin' 
-            AND status = 'active'
-        )
-    );
+CREATE POLICY "Authenticated users can delete gallery"
+  ON gallery FOR DELETE
+  TO authenticated
+  USING (true);
 
-CREATE POLICY "Users can update their own profile"
-    ON users FOR UPDATE
-    TO authenticated
-    USING (id = auth.uid())
-    WITH CHECK (
-        id = auth.uid() AND
-        -- Prevent users from changing their own role or status
-        role = (SELECT role FROM users WHERE id = auth.uid()) AND
-        status = (SELECT status FROM users WHERE id = auth.uid())
-    );
+-- Pages
+CREATE POLICY "Anyone can read published pages"
+  ON pages FOR SELECT
+  USING (status = 'published');
 
--- Create updated_at trigger
-CREATE TRIGGER update_users_updated_at
-    BEFORE UPDATE ON users
-    FOR EACH ROW
-    EXECUTE FUNCTION update_updated_at_column();
+CREATE POLICY "Authenticated users can insert pages"
+  ON pages FOR INSERT
+  TO authenticated
+  WITH CHECK (true);
 
--- =============================================
--- AUDIT LOGGING SYSTEM
--- =============================================
+CREATE POLICY "Authenticated users can update pages"
+  ON pages FOR UPDATE
+  TO authenticated
+  USING (true) WITH CHECK (true);
 
--- Create login attempts audit table
-CREATE TABLE IF NOT EXISTS login_attempts (
-    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    email text NOT NULL,
-    ip_address inet,
-    user_agent text,
-    success boolean NOT NULL,
-    failure_reason text,
-    attempted_at timestamptz DEFAULT now(),
-    user_id uuid REFERENCES users(id) ON DELETE SET NULL
-);
+CREATE POLICY "Authenticated users can delete pages"
+  ON pages FOR DELETE
+  TO authenticated
+  USING (true);
 
--- Create index for audit queries
-CREATE INDEX idx_login_attempts_email ON login_attempts(email);
-CREATE INDEX idx_login_attempts_attempted_at ON login_attempts(attempted_at);
-CREATE INDEX idx_login_attempts_success ON login_attempts(success);
+-- Page sections
+CREATE POLICY "Anyone can read active page sections"
+  ON page_sections FOR SELECT
+  USING (is_active = true);
 
--- Enable RLS for audit table
-ALTER TABLE login_attempts ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Authenticated users can insert page sections"
+  ON page_sections FOR INSERT
+  TO authenticated
+  WITH CHECK (true);
 
-CREATE POLICY "Admin users can read login attempts"
-    ON login_attempts FOR SELECT
-    TO authenticated
-    USING (
-        EXISTS (
-            SELECT 1 FROM users 
-            WHERE id = auth.uid() 
-            AND role = 'admin' 
-            AND status = 'active'
-        )
-    );
+CREATE POLICY "Authenticated users can update page sections"
+  ON page_sections FOR UPDATE
+  TO authenticated
+  USING (true) WITH CHECK (true);
 
--- =============================================
--- USER SESSION MANAGEMENT
--- =============================================
+CREATE POLICY "Authenticated users can delete page sections"
+  ON page_sections FOR DELETE
+  TO authenticated
+  USING (true);
 
--- Create user sessions table for enhanced security
-CREATE TABLE IF NOT EXISTS user_sessions (
-    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    session_token text UNIQUE NOT NULL,
-    ip_address inet,
-    user_agent text,
-    expires_at timestamptz NOT NULL,
-    is_active boolean DEFAULT true,
-    created_at timestamptz DEFAULT now(),
-    last_activity timestamptz DEFAULT now()
-);
+-- Resources
+CREATE POLICY "Anyone can read published resources"
+  ON resources FOR SELECT
+  USING (status = 'published');
 
--- Create indexes
-CREATE INDEX idx_user_sessions_user_id ON user_sessions(user_id);
-CREATE INDEX idx_user_sessions_token ON user_sessions(session_token);
-CREATE INDEX idx_user_sessions_expires_at ON user_sessions(expires_at);
+CREATE POLICY "Authenticated users can insert resources"
+  ON resources FOR INSERT
+  TO authenticated
+  WITH CHECK (true);
 
--- Enable RLS
-ALTER TABLE user_sessions ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Authenticated users can update resources"
+  ON resources FOR UPDATE
+  TO authenticated
+  USING (true) WITH CHECK (true);
 
-CREATE POLICY "Users can read their own sessions"
-    ON user_sessions FOR SELECT
-    TO authenticated
-    USING (user_id = auth.uid());
+CREATE POLICY "Authenticated users can delete resources"
+  ON resources FOR DELETE
+  TO authenticated
+  USING (true);
 
-CREATE POLICY "Admin users can read all sessions"
-    ON user_sessions FOR SELECT
-    TO authenticated
-    USING (
-        EXISTS (
-            SELECT 1 FROM users 
-            WHERE id = auth.uid() 
-            AND role = 'admin' 
-            AND status = 'active'
-        )
-    );
+-- Emergency alerts
+CREATE POLICY "Anyone can read active emergency alerts"
+  ON emergency_alerts FOR SELECT
+  USING (status = 'active');
 
--- =============================================
--- PRODUCTION USER DATA
--- =============================================
+CREATE POLICY "Authenticated users can insert emergency alerts"
+  ON emergency_alerts FOR INSERT
+  TO authenticated
+  WITH CHECK (true);
 
--- Insert production admin user
--- Password: admin123 (hashed with bcrypt)
-INSERT INTO users (
-    id,
-    username, 
-    email, 
-    password_hash, 
-    role, 
-    name, 
-    status,
-    created_at
-) VALUES (
-    'c85ef782-cd26-40ef-b152-5640e68a237f',
-    'admin',
-    'admin@mdrrmo.gov.ph',
-    '$2a$12$71ZrCIVm.x5il8O4Jr6DmeoCUOzDfQgK0Dc/Lt1pau0Xvjg1wnaZm',
-    'admin',
-    'Administrator',
-    'active',
-    now()
-) ON CONFLICT (id) DO UPDATE SET
-    username = EXCLUDED.username,
-    email = EXCLUDED.email,
-    password_hash = EXCLUDED.password_hash,
-    role = EXCLUDED.role,
-    name = EXCLUDED.name,
-    status = EXCLUDED.status;
+CREATE POLICY "Authenticated users can update emergency alerts"
+  ON emergency_alerts FOR UPDATE
+  TO authenticated
+  USING (true) WITH CHECK (true);
 
--- Insert additional production users
-INSERT INTO users (
-    username, 
-    email, 
-    password_hash, 
-    role, 
-    name, 
-    status,
-    created_by
-) VALUES 
-(
-    'director',
-    'director@mdrrmo.gov.ph',
-    '$2a$12$71ZrCIVm.x5il8O4Jr6DmeoCUOzDfQgK0Dc/Lt1pau0Xvjg1wnaZm',
-    'admin',
-    'MDRRMO Director',
-    'active',
-    'c85ef782-cd26-40ef-b152-5640e68a237f'
-),
-(
-    'operations',
-    'operations@mdrrmo.gov.ph',
-    '$2a$12$71ZrCIVm.x5il8O4Jr6DmeoCUOzDfQgK0Dc/Lt1pau0Xvjg1wnaZm',
-    'editor',
-    'Operations Manager',
-    'active',
-    'c85ef782-cd26-40ef-b152-5640e68a237f'
-),
-(
-    'training',
-    'training@mdrrmo.gov.ph',
-    '$2a$12$71ZrCIVm.x5il8O4Jr6DmeoCUOzDfQgK0Dc/Lt1pau0Xvjg1wnaZm',
-    'editor',
-    'Training Coordinator',
-    'active',
-    'c85ef782-cd26-40ef-b152-5640e68a237f'
-)
-ON CONFLICT (email) DO UPDATE SET
-    username = EXCLUDED.username,
-    password_hash = EXCLUDED.password_hash,
-    role = EXCLUDED.role,
-    name = EXCLUDED.name,
-    status = EXCLUDED.status,
-    updated_at = now();
+CREATE POLICY "Authenticated users can delete emergency alerts"
+  ON emergency_alerts FOR DELETE
+  TO authenticated
+  USING (true);
 
--- =============================================
--- SECURITY FUNCTIONS
--- =============================================
+-- Social posts
+CREATE POLICY "Anyone can read published social posts"
+  ON social_posts FOR SELECT
+  USING (status = 'published');
 
--- Function to hash passwords (for admin use)
-CREATE OR REPLACE FUNCTION hash_password(password text)
-RETURNS text AS $$
-BEGIN
-    RETURN crypt(password, gen_salt('bf', 12));
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+CREATE POLICY "Authenticated users can insert social posts"
+  ON social_posts FOR INSERT
+  TO authenticated
+  WITH CHECK (true);
 
--- Function to verify passwords
-CREATE OR REPLACE FUNCTION verify_password(password text, hash text)
-RETURNS boolean AS $$
-BEGIN
-    RETURN hash = crypt(password, hash);
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+CREATE POLICY "Authenticated users can update social posts"
+  ON social_posts FOR UPDATE
+  TO authenticated
+  USING (true) WITH CHECK (true);
 
--- Function to create new admin user (for system administration)
-CREATE OR REPLACE FUNCTION create_admin_user(
-    p_username text,
-    p_email text,
-    p_password text,
-    p_name text
-)
-RETURNS uuid AS $$
-DECLARE
-    new_user_id uuid;
-    password_hash text;
-BEGIN
-    -- Generate password hash
-    password_hash := hash_password(p_password);
-    
-    -- Insert new user
-    INSERT INTO users (username, email, password_hash, role, name, status)
-    VALUES (p_username, p_email, password_hash, 'admin', p_name, 'active')
-    RETURNING id INTO new_user_id;
-    
-    RETURN new_user_id;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+CREATE POLICY "Authenticated users can delete social posts"
+  ON social_posts FOR DELETE
+  TO authenticated
+  USING (true);
 
--- Function to update user password
-CREATE OR REPLACE FUNCTION update_user_password(
-    p_user_id uuid,
-    p_new_password text
-)
-RETURNS boolean AS $$
-DECLARE
-    password_hash text;
-BEGIN
-    -- Check if user exists and is active
-    IF NOT EXISTS (SELECT 1 FROM users WHERE id = p_user_id AND status = 'active') THEN
-        RETURN false;
-    END IF;
-    
-    -- Generate new password hash
-    password_hash := hash_password(p_new_password);
-    
-    -- Update password
-    UPDATE users 
-    SET password_hash = password_hash, 
-        updated_at = now(),
-        login_attempts = 0,
-        locked_until = NULL
-    WHERE id = p_user_id;
-    
-    RETURN true;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+-- Navigation items
+CREATE POLICY "Anyone can read active navigation items"
+  ON navigation_items FOR SELECT
+  USING (is_active = true);
 
--- =============================================
--- CLEANUP AND MAINTENANCE
--- =============================================
+CREATE POLICY "Authenticated users can insert navigation items"
+  ON navigation_items FOR INSERT
+  TO authenticated
+  WITH CHECK (true);
 
--- Function to cleanup expired sessions
-CREATE OR REPLACE FUNCTION cleanup_expired_sessions()
-RETURNS integer AS $$
-DECLARE
-    deleted_count integer;
-BEGIN
-    DELETE FROM user_sessions 
-    WHERE expires_at < now() OR is_active = false;
-    
-    GET DIAGNOSTICS deleted_count = ROW_COUNT;
-    RETURN deleted_count;
-END;
-$$ LANGUAGE plpgsql;
+CREATE POLICY "Authenticated users can update navigation items"
+  ON navigation_items FOR UPDATE
+  TO authenticated
+  USING (true) WITH CHECK (true);
 
--- Function to cleanup old login attempts (keep last 30 days)
-CREATE OR REPLACE FUNCTION cleanup_old_login_attempts()
-RETURNS integer AS $$
-DECLARE
-    deleted_count integer;
-BEGIN
-    DELETE FROM login_attempts 
-    WHERE attempted_at < now() - INTERVAL '30 days';
-    
-    GET DIAGNOSTICS deleted_count = ROW_COUNT;
-    RETURN deleted_count;
-END;
-$$ LANGUAGE plpgsql;
+CREATE POLICY "Authenticated users can delete navigation items"
+  ON navigation_items FOR DELETE
+  TO authenticated
+  USING (true);
 
--- =============================================
--- VERIFICATION AND FINAL SETUP
--- =============================================
+-- Organizational hierarchy
+CREATE POLICY "Anyone can read active organizational hierarchy"
+  ON organizational_hierarchy FOR SELECT
+  USING (is_active = true);
 
--- Verify admin user exists
-DO $$
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM users 
-        WHERE email = 'admin@mdrrmo.gov.ph' 
-        AND role = 'admin' 
-        AND status = 'active'
-    ) THEN
-        RAISE EXCEPTION 'Admin user not created properly';
-    END IF;
-    
-    RAISE NOTICE 'Production authentication system setup completed successfully';
-    RAISE NOTICE 'Admin user: admin@mdrrmo.gov.ph (password: admin123)';
-    RAISE NOTICE 'Director user: director@mdrrmo.gov.ph (password: admin123)';
-    RAISE NOTICE 'Operations user: operations@mdrrmo.gov.ph (password: admin123)';
-    RAISE NOTICE 'Training user: training@mdrrmo.gov.ph (password: admin123)';
-    RAISE NOTICE 'IMPORTANT: Change default passwords immediately in production!';
-END $$;
+CREATE POLICY "Authenticated users can insert organizational hierarchy"
+  ON organizational_hierarchy FOR INSERT
+  TO authenticated
+  WITH CHECK (true);
 
--- Grant necessary permissions
-GRANT USAGE ON SCHEMA public TO authenticated;
-GRANT ALL ON users TO authenticated;
-GRANT ALL ON login_attempts TO authenticated;
-GRANT ALL ON user_sessions TO authenticated;
+CREATE POLICY "Authenticated users can update organizational hierarchy"
+  ON organizational_hierarchy FOR UPDATE
+  TO authenticated
+  USING (true) WITH CHECK (true);
 
--- Final security check
-DO $$
-BEGIN
-    -- Verify RLS is enabled on critical tables
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_class c
-        JOIN pg_namespace n ON n.oid = c.relnamespace
-        WHERE c.relname = 'users'
-        AND n.nspname = 'public'
-        AND c.relrowsecurity = true
-    ) THEN
-        RAISE EXCEPTION 'RLS not enabled on users table';
-    END IF;
-    
-    RAISE NOTICE 'Security verification passed - RLS enabled on all critical tables';
-END $$;
+CREATE POLICY "Authenticated users can delete organizational hierarchy"
+  ON organizational_hierarchy FOR DELETE
+  TO authenticated
+  USING (true);
+
+-- Key personnel
+CREATE POLICY "Anyone can read active key personnel"
+  ON key_personnel FOR SELECT
+  USING (is_active = true);
+
+CREATE POLICY "Authenticated users can insert key personnel"
+  ON key_personnel FOR INSERT
+  TO authenticated
+  WITH CHECK (true);
+
+CREATE POLICY "Authenticated users can update key personnel"
+  ON key_personnel FOR UPDATE
+  TO authenticated
+  USING (true) WITH CHECK (true);
+
+CREATE POLICY "Authenticated users can delete key personnel"
+  ON key_personnel FOR DELETE
+  TO authenticated
+  USING (true);
+
+-- Emergency hotlines
+CREATE POLICY "Anyone can read active emergency hotlines"
+  ON emergency_hotlines FOR SELECT
+  USING (is_active = true);
+
+CREATE POLICY "Authenticated users can insert emergency hotlines"
+  ON emergency_hotlines FOR INSERT
+  TO authenticated
+  WITH CHECK (true);
+
+CREATE POLICY "Authenticated users can update emergency hotlines"
+  ON emergency_hotlines FOR UPDATE
+  TO authenticated
+  USING (true) WITH CHECK (true);
+
+CREATE POLICY "Authenticated users can delete emergency hotlines"
+  ON emergency_hotlines FOR DELETE
+  TO authenticated
+  USING (true);
+
+-- System settings
+CREATE POLICY "Anyone can read public settings"
+  ON system_settings FOR SELECT
+  USING (is_public = true);
+
+CREATE POLICY "Authenticated users can read all settings"
+  ON system_settings FOR SELECT
+  TO authenticated
+  USING (true);
+
+CREATE POLICY "Authenticated users can insert settings"
+  ON system_settings FOR INSERT
+  TO authenticated
+  WITH CHECK (true);
+
+CREATE POLICY "Authenticated users can update settings"
+  ON system_settings FOR UPDATE
+  TO authenticated
+  USING (true) WITH CHECK (true);
+
+CREATE POLICY "Authenticated users can delete settings"
+  ON system_settings FOR DELETE
+  TO authenticated
+  USING (true);
+
+-- Users
+CREATE POLICY "Authenticated users can read all users"
+  ON users FOR SELECT
+  TO authenticated
+  USING (true);
+
+CREATE POLICY "Authenticated users can insert users"
+  ON users FOR INSERT
+  TO authenticated
+  WITH CHECK (true);
+
+CREATE POLICY "Authenticated users can update users"
+  ON users FOR UPDATE
+  TO authenticated
+  USING (true) WITH CHECK (true);
+
+CREATE POLICY "Authenticated users can delete users"
+  ON users FOR DELETE
+  TO authenticated
+  USING (true);
+
+-- About sections
+CREATE POLICY "Anyone can read active about sections"
+  ON about_sections FOR SELECT
+  USING (is_active = true);
+
+CREATE POLICY "Authenticated users can insert about sections"
+  ON about_sections FOR INSERT
+  TO authenticated
+  WITH CHECK (true);
+
+CREATE POLICY "Authenticated users can update about sections"
+  ON about_sections FOR UPDATE
+  TO authenticated
+  USING (true) WITH CHECK (true);
+
+CREATE POLICY "Authenticated users can delete about sections"
+  ON about_sections FOR DELETE
+  TO authenticated
+  USING (true);
+
+-- Weather data
+CREATE POLICY "Anyone can read active weather data"
+  ON weather_data FOR SELECT
+  USING (is_active = true);
+
+CREATE POLICY "Authenticated users can insert weather data"
+  ON weather_data FOR INSERT
+  TO authenticated
+  WITH CHECK (true);
+
+CREATE POLICY "Authenticated users can update weather data"
+  ON weather_data FOR UPDATE
+  TO authenticated
+  USING (true) WITH CHECK (true);
+
+CREATE POLICY "Authenticated users can delete weather data"
+  ON weather_data FOR DELETE
+  TO authenticated
+  USING (true);
+
+-- Storage: gallery bucket
+CREATE POLICY "Anyone can view gallery images"
+  ON storage.objects FOR SELECT
+  USING (bucket_id = 'gallery');
+
+CREATE POLICY "Authenticated users can upload gallery images"
+  ON storage.objects FOR INSERT
+  TO authenticated
+  WITH CHECK (bucket_id = 'gallery');
+
+CREATE POLICY "Authenticated users can update
